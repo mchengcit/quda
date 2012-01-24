@@ -318,6 +318,7 @@ void initDslashConstants(const cudaGaugeField &gauge, const int sp_stride)
     cudaEventCreate(&gatherEnd[i], cudaEventDisableTiming);
     cudaEventCreateWithFlags(&scatterStart[i], cudaEventDisableTiming);
     cudaEventCreateWithFlags(&scatterEnd[i], cudaEventDisableTiming);
+    cudaEventCreateWithFlags(&packEnd[i], cudaEventDisableTiming);
   }
 #else
   cudaEventCreate(&dslashStart);

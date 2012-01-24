@@ -561,22 +561,7 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
       face->pack(*inSpinor, 1-parity, dagger, 2*i+dir, streams);
 
       // Record the end of the packing
-      CUDA_EVENT_RECORD(packEnd[2*i+dir], streams[2*i+dir]);
-    }
-  }
-
-  for(int i = 3; i >=0; i--){
-    if (!dslashParam.commDim[i]) continue;
-
-    for (int dir = 0; dir<2; dir++) {
-      // Record the start of the gathering
-      CUDA_EVENT_RECORD(gatherStart[2*i+dir], streams[2*i+dir]);
-
-      // Initialize host transfer from source spinor
-      face->gather(*inSpinor, dagger, 2*i+dir);
-
-      // Record the end of the gathering
-      cudaEventRecord(gatherEnd[2*i+dir], streams[2*i+dir]);
+      cudaEventRecord(packEnd[2*i+dir], streams[2*i+dir]);
     }
   }
 #endif
@@ -589,21 +574,40 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
 #ifdef MULTI_GPU
 
   int completeSum = 0;
+  int packCompleted[Nstream];
   int gatherCompleted[Nstream];
   int commsCompleted[Nstream];
   for (int i=0; i<Nstream; i++) {
+    packCompleted[i] = 0;
     gatherCompleted[i] = 0;
     commsCompleted[i] = 0;
   }
   int commDimTotal = 0;
   for (int i=0; i<4; i++) commDimTotal += dslashParam.commDim[i];
 
-  while (completeSum < 2*commDimTotal) {
+  while (completeSum < 3*commDimTotal) {
     for (int i=3; i>=0; i--) {
       if (!dslashParam.commDim[i]) continue;
       
       for (int dir=0; dir<2; dir++) {
 	
+	if (!packCompleted[2*i+dir]) { // Query if pack has completed
+	  // always kick off T- gather immediately
+	  if ((2*i+dir) == 0 || (cudaSuccess == cudaEventQuery(packEnd[2*i+dir]))) {
+	    packCompleted[2*i+dir] = 1;
+	    completeSum++;
+
+	    // Record the start of the gathering
+	    CUDA_EVENT_RECORD(gatherStart[2*i+dir], streams[2*i+dir]);
+
+	    // Initialize host transfer from source spinor
+	    face->gather(*inSpinor, dagger, 2*i+dir);
+
+	    // Record the end of the gathering
+	    cudaEventRecord(gatherEnd[2*i+dir], streams[2*i+dir]);
+	  }
+	}
+
 	if (!gatherCompleted[2*i+dir]) { // Query if gather has completed
 	  if (cudaSuccess == cudaEventQuery(gatherEnd[2*i+dir])) {
 	    gatherCompleted[2*i+dir] = 1;
