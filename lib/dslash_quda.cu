@@ -61,6 +61,7 @@ static const int Nstream = 1;
 #endif
 static cudaStream_t streams[Nstream];
 static cudaEvent_t dslashEnd;
+static cudaEvent_t packEnd[Nstream];
 static cudaEvent_t gatherStart[Nstream];
 static cudaEvent_t gatherEnd[Nstream];
 static cudaEvent_t scatterStart[Nstream];
@@ -76,7 +77,6 @@ static struct timeval commsEnd[Nstream];
 
 static cudaEvent_t dslashStart;
 static cudaEvent_t packStart[Nstream];
-static cudaEvent_t packEnd[Nstream];
 static cudaEvent_t kernelStart[Nstream];
 static cudaEvent_t kernelEnd[Nstream];
 
