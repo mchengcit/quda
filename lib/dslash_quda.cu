@@ -479,7 +479,7 @@ void dslashTimeProfile() {
   for (int i=3; i>=0; i--) {
     if (!dslashParam.commDim[i]) continue;
 
-    for (int dir = 0; dir < 2; dir ++) {
+    for (int dir=1; dir>=0; dir--) {
       // pack timing
       cudaEventElapsedTime(&runTime, dslashStart, packStart[2*i+dir]);
       packTime[2*i+dir][0] += runTime; // start time
@@ -523,7 +523,7 @@ void printDslashProfile() {
   for (int i=3; i>=0; i--) {
     if (!dslashParam.commDim[i]) continue;
 
-    for (int dir = 0; dir < 2; dir ++) {
+    for (int dir=1; dir>=0; dir--) {
       printfQuda("%8s ", dimstr[2*i+dir]);
       printfQuda("%6.2f %6.2f ", packTime[2*i+dir][0], packTime[2*i+dir][1]);
       printfQuda("%6.2f %6.2f ", gatherTime[2*i+dir][0], gatherTime[2*i+dir][1]);
@@ -553,7 +553,7 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
   for(int i = 3; i >=0; i--){
     if (!dslashParam.commDim[i]) continue;
 
-    for (int dir = 0; dir<2; dir++) {
+    for (int dir=1; dir>=0; dir--) {
       // Record the start of the packing
       CUDA_EVENT_RECORD(packStart[2*i+dir], streams[2*i+dir]);
 
@@ -582,18 +582,37 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
     gatherCompleted[i] = 0;
     commsCompleted[i] = 0;
   }
+
+  int first = 0; // the first direcions in which we communicate
+  for (int i=3; i>=0; i--)
+    if (dslashParam.commDim[i]) { 
+      packCompleted[2*i+2] = 1;
+      gatherCompleted[2*i+2] = 1;
+      commsCompleted[2*i+2] = 1;
+      first = 2*i+1;
+      break; 
+    }
+
   int commDimTotal = 0;
   for (int i=0; i<4; i++) commDimTotal += dslashParam.commDim[i];
+  commDimTotal *= 6; // 3 from pipeline length, 2 from direction
 
-  while (completeSum < 3*commDimTotal) {
+  int j = 0;
+  while (completeSum < commDimTotal) { 
+    __asm__ __volatile__ ("pause");
+
     for (int i=3; i>=0; i--) {
       if (!dslashParam.commDim[i]) continue;
-      
-      for (int dir=0; dir<2; dir++) {
+
+      for (int dir=1; dir>=0; dir--) {
 	
-	if (!packCompleted[2*i+dir]) { // Query if pack has completed
-	  // always kick off T- gather immediately
-	  if ((2*i+dir) == 0 || (cudaSuccess == cudaEventQuery(packEnd[2*i+dir]))) {
+	// Query if pack has completed
+	if (!packCompleted[2*i+dir] && packCompleted[2*i+dir+1]) { 
+	  // only query if not first transfer, else just do it
+	  cudaError_t error = cudaSuccess;
+	  if (2*i + dir != first) error = cudaEventQuery(packEnd[2*i+dir]);
+	  
+	  if (error == cudaSuccess) {
 	    packCompleted[2*i+dir] = 1;
 	    completeSum++;
 
@@ -608,7 +627,9 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
 	  }
 	}
 
-	if (!gatherCompleted[2*i+dir]) { // Query if gather has completed
+	// Query if gather has completed
+	if (!gatherCompleted[2*i+dir] && gatherCompleted[2*i+dir+1] &&
+	    packCompleted[2*i]) { 
 	  if (cudaSuccess == cudaEventQuery(gatherEnd[2*i+dir])) {
 	    gatherCompleted[2*i+dir] = 1;
 	    completeSum++;
@@ -617,7 +638,8 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
 	  }
 	}
 	
-	if (!commsCompleted[2*i+dir]) {
+	if (!commsCompleted[2*i+dir] && commsCompleted[2*i+dir+1] &&
+	    gatherCompleted[2*i+dir]) {
 	  if (face->commsQuery(2*i+dir)) { // Query if comms has finished
 	    commsCompleted[2*i+dir] = 1;
 	    completeSum++;
@@ -637,6 +659,7 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
       }
     }
     
+    j++;
   }
 
   for (int i=3; i>=0; i--) {
@@ -648,8 +671,8 @@ void dslashCuda(DslashCuda &dslash, const size_t regSize, const int parity, cons
     dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
 
     // wait for scattering to finish and then launch dslash
-    cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[2*i], 0);
     cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[2*i+1], 0);
+    cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[2*i], 0);
 
     CUDA_EVENT_RECORD(kernelStart[2*i], streams[Nstream-1]);
 
