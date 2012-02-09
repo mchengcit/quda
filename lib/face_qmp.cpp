@@ -273,12 +273,6 @@ int FaceBuffer::commsQuery(int dir) {
   int dim = dir/2;
   if(!commDimPartitioned(dim)) return 0;
 
-  /*printf("%d %d %d %d %d\n", dir, dim,
-	 QMP_is_complete(mh_send_back[dim]),
-	 QMP_is_complete(mh_from_fwd[dim]),
-	 QMP_is_complete(mh_send_fwd[dim]),
-	 QMP_is_complete(mh_from_back[dim]));*/
-
   if (dir%2==0) {// receive from forwards
     if (QMP_is_complete(mh_send_back[dim]) == QMP_TRUE &&
 	QMP_is_complete(mh_from_fwd[dim]) == QMP_TRUE) {
