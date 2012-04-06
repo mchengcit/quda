@@ -19,6 +19,21 @@ extern "C" {
 #define QUDA_MAX_DIM 6
 #define QUDA_MAX_MULTI_SHIFT 32 // the maximum number of shifts for the multi-shift solver
 
+  typedef struct QudaSpinorSmearParam_s {
+
+    QudaSpinorSmearType type;
+    double alpha_local; //Local smearing coefficient, i.e. 1/(1+6r) for Jacobi smearing
+    double alpha_NN;  //Nearest-neighbor smearing coefficient, i.e. r/(1+6r) for Jacobi smearing
+    int nsteps;    //Number of smearing steps
+    QudaPrecision cpu_prec;
+    QudaPrecision cuda_prec;
+    int nSpin; //Only 4 spins supported at the moment
+    int pad;   //volumetric padding
+    QudaDiracFieldOrder diracOrder;
+    QudaGammaBasis gammaBasis;
+    QudaVerbosity verbosity;
+  } QudaSpinorSmearParam;
+
   typedef struct QudaGaugeParam_s {
 
     int X[4];
@@ -145,6 +160,8 @@ extern "C" {
 		      QudaInvertParam *inv_param);
   void freeCloverQuda(void);
 
+  void smearSpinor(void *h_out, void *h_in, QudaSpinorSmearParam *smear_param);
+
   void invertQuda(void *h_x, void *h_b, QudaInvertParam *param);
   void invertMultiShiftQuda(void **_hp_x, void *_hp_b, QudaInvertParam *param,
 			    double* offsets, int num_offsets,
@@ -162,10 +179,11 @@ extern "C" {
 
   QudaGaugeParam newQudaGaugeParam(void);
   QudaInvertParam newQudaInvertParam(void);
+  QudaSpinorSmearParam newQudaSpinorSmearParam(void);
 
   void printQudaGaugeParam(QudaGaugeParam *param);
   void printQudaInvertParam(QudaInvertParam *param);
-
+  void printQudaSpinorSmearParam(QudaSpinorSmearParam *param);
 
   void  record_gauge(int* X, void *_fatlink, int _fatlink_pad, 
 		     void* _longlink, int _longlink_pad, 

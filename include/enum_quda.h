@@ -9,6 +9,15 @@ extern "C" {
 #endif
 
   //
+  // Types used in QuadaSpinorSmearParam
+  //
+
+  typedef enum QudaSpinorSmearType_s {
+    QUDA_JACOBI_SMEAR,  //Jacobi smearing
+    QUDA_INVALID_SMEAR = QUDA_INVALID_ENUM
+  } QudaSpinorSmearType;
+
+  //
   // Types used in QudaGaugeParam
   //
 

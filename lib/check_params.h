@@ -27,6 +27,33 @@
 #error INIT_PARAM, CHECK_PARAM, and PRINT_PARAM all undefined in check_params.h
 #endif
 
+// define the appropriate function for SpinorSmearParam
+#if defined INIT_PARAM
+QudaSpinorSmearParam newQudaSpinorSmearParam(void) {
+  QudaSpinorSmearParam ret;
+#elif defined CHECK_PARAM
+static void checkSpinorSmearParam(QudaSpinorSmearParam *param) {
+#else
+void printQudaSpinorSmearParam(QudaSpinorSmearParam *param) {
+  printfQuda("QUDA Spinor Smear Parameters:\n");
+#endif
+
+  P(type, QUDA_INVALID_SMEAR);
+  P(alpha_local, INVALID_DOUBLE);
+  P(alpha_NN, INVALID_DOUBLE);
+  P(nsteps, INVALID_INT);  
+  P(cpu_prec, QUDA_INVALID_PRECISION);
+  P(cuda_prec, QUDA_INVALID_PRECISION);
+  P(nSpin, INVALID_INT);
+  P(pad, INVALID_INT);
+  P(diracOrder, QUDA_INVALID_DIRAC_ORDER);
+  P(gammaBasis, QUDA_INVALID_GAMMA_BASIS);
+  P(verbosity, QUDA_INVALID_VERBOSITY);
+  
+#if defined INIT_PARAM
+  return ret;
+#endif
+}
 
 // define the appropriate function for GaugeParam
 

@@ -55,7 +55,54 @@ class ColorSpinorParam {
 	x[d] = 0; 
       }
     }
-  
+
+   //Constructor for ColorSpinorParam for use in spinor smearing
+   //Use to create cpu_params
+   ColorSpinorParam(void *V, QudaSpinorSmearParam &smear_param, const int *X)
+     : fieldLocation(QUDA_CPU_FIELD_LOCATION), nColor(3),
+     nSpin(smear_param.nSpin), nDim(4), precision(smear_param.cpu_prec),
+     pad(0), twistFlavor(QUDA_TWIST_INVALID), 
+     siteSubset(QUDA_FULL_SITE_SUBSET), siteOrder(QUDA_INVALID_SITE_ORDER),
+     fieldOrder(QUDA_INVALID_FIELD_ORDER), gammaBasis(smear_param.gammaBasis),
+     create(QUDA_REFERENCE_FIELD_CREATE), v(V), verbose(smear_param.verbosity)
+   {
+    if (nDim > QUDA_MAX_DIM) errorQuda("Number of dimensions too great");
+    for (int d=0; d<nDim; d++) x[d] = X[d];
+
+    if (smear_param.diracOrder == QUDA_CPS_WILSON_DIRAC_ORDER) {
+      fieldOrder = QUDA_SPACE_SPIN_COLOR_FIELD_ORDER;
+      siteOrder = QUDA_ODD_EVEN_SITE_ORDER;
+    } else if (smear_param.diracOrder == QUDA_QDP_DIRAC_ORDER) {
+      fieldOrder = QUDA_SPACE_COLOR_SPIN_FIELD_ORDER;
+      siteOrder = QUDA_EVEN_ODD_SITE_ORDER;
+    } else if (smear_param.diracOrder == QUDA_DIRAC_ORDER) {
+      fieldOrder = QUDA_SPACE_SPIN_COLOR_FIELD_ORDER;
+      siteOrder = QUDA_EVEN_ODD_SITE_ORDER;
+    } else {
+      errorQuda("Dirac order %d not supported", smear_param.diracOrder);
+    }
+   }
+
+  // used to create cuda param from a cpu param
+ ColorSpinorParam(ColorSpinorParam &cpuParam, QudaSpinorSmearParam &smear_param) 
+    : fieldLocation(QUDA_CUDA_FIELD_LOCATION), nColor(cpuParam.nColor), nSpin(cpuParam.nSpin), 
+    nDim(cpuParam.nDim), precision(smear_param.cuda_prec), pad(smear_param.pad),  
+    twistFlavor(cpuParam.twistFlavor), siteSubset(cpuParam.siteSubset), 
+    siteOrder(QUDA_EVEN_ODD_SITE_ORDER), fieldOrder(QUDA_INVALID_FIELD_ORDER), 
+    gammaBasis(nSpin == 4? QUDA_UKQCD_GAMMA_BASIS : QUDA_DEGRAND_ROSSI_GAMMA_BASIS), 
+    create(QUDA_COPY_FIELD_CREATE), v(0), verbose(cpuParam.verbose)
+  {
+    if (nDim > QUDA_MAX_DIM) errorQuda("Number of dimensions too great");
+    for (int d=0; d<nDim; d++) x[d] = cpuParam.x[d];
+
+    if (precision == QUDA_DOUBLE_PRECISION || nSpin == 1) {
+      fieldOrder = QUDA_FLOAT2_FIELD_ORDER;
+    } else {
+      fieldOrder = QUDA_FLOAT4_FIELD_ORDER;
+    }
+
+  }
+
   // used to create cpu params
  ColorSpinorParam(void *V, QudaInvertParam &inv_param, const int *X, const bool pc_solution)
    : fieldLocation(QUDA_CPU_FIELD_LOCATION), nColor(3), 

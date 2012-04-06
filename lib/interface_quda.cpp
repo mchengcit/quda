@@ -19,6 +19,7 @@
 #include <llfat_quda.h>
 #include <fat_force_quda.h>
 #include <hisq_links_quda.h>
+#include <smearing_def.h>
 
 #ifdef QUDA_NUMA_SUPPORT
 #include <numa_affinity.h>
@@ -46,17 +47,17 @@
 
 #define MAX_GPU_NUM_PER_NODE 16
 
-// define newQudaGaugeParam() and newQudaInvertParam()
+// define newQudaGaugeParam() and newQudaInvertParam() and newQudaSpinorSmearParam()
 #define INIT_PARAM
 #include "check_params.h"
 #undef INIT_PARAM
 
-// define (static) checkGaugeParam() and checkInvertParam()
+// define (static) checkGaugeParam() and checkInvertParam() and checkSpinorSmearParam()
 #define CHECK_PARAM
 #include "check_params.h"
 #undef CHECK_PARAM
 
-// define printQudaGaugeParam() and printQudaInvertParam()
+// define printQudaGaugeParam() and printQudaInvertParam() and printQudaSpinorSmearParam()
 #define PRINT_PARAM
 #include "check_params.h"
 #undef PRINT_PARAM
@@ -632,6 +633,24 @@ static void massRescaleCoeff(QudaDslashType dslash_type, double &kappa, QudaSolu
   if (verbosity >= QUDA_DEBUG_VERBOSE) printfQuda("Mass rescale done\n");   
 }
 
+void smearSpinor(void *h_out, void *h_in, QudaSpinorSmearParam *smear_param)
+{
+  checkSpinorSmearParam(smear_param);
+  ColorSpinorParam cpuParam(h_in, *smear_param, gaugePrecise->X());
+  ColorSpinorParam cudaParam(cpuParam, *smear_param);
+
+  cpuColorSpinorField hIn(cpuParam);
+  cudaColorSpinorField in(hIn, cudaParam);
+
+  cudaParam.create = QUDA_NULL_FIELD_CREATE;
+  cudaColorSpinorField out(in, cudaParam);
+
+  spinorSmear(out, in, smear_param, *gaugePrecise);  
+
+  cpuParam.v = h_out;
+  cpuColorSpinorField hOut(cpuParam);
+  out.saveCPUSpinorField(hOut);
+}  
 
 void dslashQuda(void *h_out, void *h_in, QudaInvertParam *inv_param, QudaParity parity)
 {
